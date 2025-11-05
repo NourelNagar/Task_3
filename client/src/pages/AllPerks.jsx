@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 
@@ -23,12 +23,46 @@ export default function AllPerks() {
 
   // ==================== SIDE EFFECTS WITH useEffect HOOK ====================
 
- /*
- TODO: HOOKS TO IMPLEMENT
- * useEffect Hook #1: Initial Data Loading
- * useEffect Hook #2: Auto-search on Input Change
+  // useEffect Hook #1: Initial Data Loading
+  // Load all perks when component first mounts
+  useEffect(() => {
+    loadAllPerks()
+  }, []) // Empty dependency array means this runs once on mount
 
-*/
+  // useEffect Hook #2: Auto-search on Input Change
+  // Automatically reload perks when searchQuery or merchantFilter changes
+  // Debounce search input to avoid too many API calls while typing
+  const debounceTimeoutRef = useRef(null)
+  const isInitialMount = useRef(true)
+  
+  useEffect(() => {
+    // Skip on initial mount - the initial load useEffect handles that
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    
+    // Clear any existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current)
+    }
+    
+    // Set a new timeout to debounce the search
+    // For search query, wait 500ms after user stops typing
+    // For merchant filter, reload immediately (no debounce needed)
+    const delay = searchQuery.trim() ? 500 : 0
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      loadAllPerks()
+    }, delay)
+    
+    // Cleanup: clear timeout if component unmounts or dependencies change
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current)
+      }
+    }
+  }, [searchQuery, merchantFilter]) // Re-run when search or filter changes
 
   
   useEffect(() => {
@@ -84,6 +118,20 @@ export default function AllPerks() {
   // ==================== EVENT HANDLERS ====================
 
   
+  function handleSearchInputChange(e) {
+    // Update search query state as user types
+    // The useEffect with [searchQuery, merchantFilter] will automatically trigger
+    setSearchQuery(e.target.value)
+  }
+
+  
+  function handleMerchantFilterChange(e) {
+    // Update merchant filter state when user selects from dropdown
+    // The useEffect with [searchQuery, merchantFilter] will automatically trigger
+    setMerchantFilter(e.target.value)
+  }
+
+  
   function handleSearch(e) {
     // Prevent default form submission behavior (page reload)
     e.preventDefault()
@@ -136,7 +184,8 @@ export default function AllPerks() {
                 type="text"
                 className="input"
                 placeholder="Enter perk name..."
-                
+                value={searchQuery}
+                onChange={handleSearchInputChange}
               />
               <p className="text-xs text-zinc-500 mt-1">
                 Auto-searches as you type, or press Enter / click Search
@@ -151,7 +200,8 @@ export default function AllPerks() {
               </label>
               <select
                 className="input"
-                
+                value={merchantFilter}
+                onChange={handleMerchantFilterChange}
               >
                 <option value="">All Merchants</option>
                 
@@ -217,7 +267,7 @@ export default function AllPerks() {
           
           <Link
             key={perk._id}
-           
+            to={`/perks/${perk._id}/view`}
             className="card hover:shadow-lg transition-shadow cursor-pointer"
           >
             {/* Perk Title */}
